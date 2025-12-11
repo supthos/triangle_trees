@@ -1,4 +1,3 @@
-with Ada.Containers.Bounded_Multiway_Trees;
 with Ada.Containers.Vectors;
 with Ada.Text_IO;
 with Ada.Containers;
@@ -7,15 +6,20 @@ with Ada.Containers.Multiway_Trees;
 with Ada.Wide_Text_IO;
 with Plane_Tessellation;
 use Plane_Tessellation;
+use Plane_Tessellation.Point_Vector;
 
 procedure Triangle_Trees is
    package Triangle_Tree is new Ada.Containers.Multiway_Trees
       (Element_Type => tess_point);
    use Triangle_Tree;
 
-   package Cursor_Stack is new Ada.Containers.Vectors 
-      ( Index_Type => Natural, Element_Type => Triangle_Tree.Cursor);
-   use Cursor_Stack;
+   package Tree_Vector is new Ada.Containers.Vectors
+      (Index_Type => Natural, Element_Type => Triangle_Tree.Tree);
+   use Tree_Vector;
+
+   package Cursor_Vector is new Ada.Containers.Vectors
+      (Index_Type => Natural, Element_Type => Triangle_Tree.Cursor);
+   use Cursor_Vector;
 
    type Displacement is
       record
@@ -154,70 +158,201 @@ procedure Triangle_Trees is
       end if;
    end Print_Tree;
 
-   A_Tree, B_Tree, C_Tree : Triangle_Tree.Tree;
+   function Get_Point_Vector (This : Triangle_Tree.Cursor) return Point_Vector.Vector is
+      PVec : Point_Vector.Vector;
+   begin 
+      if Has_Element(First_Child(This)) then
+         PVec.Append_Vector (Get_Point_Vector(First_Child(This)));
+      end if;
+      if Has_Element (This) then
+         PVec.Append (Element(This));
+      end if;
+      if Last_Child(This) /= First_Child (This) and Has_Element(Last_Child(This))then
+         PVec.Append_Vector (Get_Point_Vector(Last_Child(This)));
+      end if;
+      return PVec;
+   end Get_Point_Vector;
 
-   Cursor_A, Cursor_B, Cursor_C : Triangle_Tree.Cursor;
+   function Get_Leaf_Vector (This : Triangle_Tree.Cursor) return Cursor_Vector.Vector is
+      CVec : Cursor_Vector.Vector;
+   begin 
+      if Has_Element(First_Child(This)) then
+         CVec.Append_Vector (Get_Leaf_Vector(First_Child(This)));
+      end if;
+      if Has_Element (This) and Is_Leaf (This) then
+         CVec.Append (This);
+      end if;
+      if Last_Child(This) /= First_Child (This) and Has_Element(Last_Child(This))then
+         CVec.Append_Vector (Get_Leaf_Vector(Last_Child(This)));
+      end if;
+      return CVec;
+   end Get_Leaf_Vector;
+
+   function Next_Leaf (This : Triangle_Tree.Cursor) return Triangle_Tree.Cursor is
+   begin
+      if Is_Leaf(This) then
+         return This;
+      elsif Subtree_Node_Count (Last_Child(This)) < Subtree_Node_Count (First_Child(This)) then
+         return Next_Leaf (Last_Child(This));
+      else 
+         return Next_Leaf (First_Child(This));
+      end if;
+   end Next_Leaf;
+
+   type Child_Pair is
+      record
+         L, R : tess_point;
+      end record;
+
+   package Child_Pair_Vector is new Ada.Containers.Vectors
+      (Index_Type => Natural, Element_Type => Child_Pair);
+   use Child_Pair_Vector;
+
+   function Process_Leaf (Point : tess_point; P_Vec : Point_Vector.Vector) return Child_Pair_Vector.Vector is
+      Buffer :  Child_Pair_Vector.Vector;
+      Adj_Vec : Point_Vector.Vector;
+      Adj_Vec_Ind_L, Adj_Vec_Ind_R : Point_Vector.Extended_Index;
+      Child_Buff : Child_Pair;
+   begin
+      Adj_Vec := Adjacents (Point);
+      Adj_Vec_Ind_L := Point_Vector.First_Index (Adj_Vec);
+      while Adj_Vec_Ind_L <= Point_Vector.Last_Index(Adj_Vec) loop
+         if Point_Vector.Find(P_Vec, Point_Vector.Element(Adj_Vec, Adj_Vec_Ind_L)) = Point_Vector.No_Element Then
+            Child_Buff.L := Point_Vector.Element(Adj_Vec, Adj_Vec_Ind_L);
+            Adj_Vec_Ind_R := Point_Vector.First_Index (Adj_Vec);
+            while Adj_Vec_Ind_R <= Point_Vector.Last_Index(Adj_Vec) loop
+               if Adj_Vec_Ind_R /= Adj_Vec_Ind_L then
+                  if Point_Vector.Find(P_Vec, Point_Vector.Element(Adj_Vec, Adj_Vec_Ind_R)) = Point_Vector.No_Element Then
+                     Child_Buff.R := Point_Vector.Element (Adj_Vec, Adj_Vec_Ind_R);
+                     Append (Buffer, Child_Buff);
+                  end if;
+               end if;
+               
+               Adj_Vec_Ind_R := Adj_Vec_Ind_R + 1;
+            end loop;
+            Adj_Vec_Ind_L := Adj_Vec_Ind_L + 1;
+         else
+            Adj_Vec_Ind_L := Adj_Vec_Ind_L + 1;
+         end if;
+      end loop;
+      return Buffer;
+   end Process_Leaf;
+
+   function Next_Degree (TVec : Tree_Vector.Vector) return Tree_Vector.Vector is
+
+      Point : tess_point;
+
+      Node_Points : Point_Vector.Vector;
+
+      Leaf_Cursors : Cursor_Vector.Vector;
+      Leaf_Index : Cursor_Vector.Extended_Index;
+      
+      Cursor_Buffer: Triangle_Tree.Cursor;
+      Buf_Tree_Vec, Tree_Vec, Ret_Vec : Tree_Vector.Vector;
+
+
+      Buffer_Tree, Buf_T : Triangle_Tree.Tree;
+
+      Child_Buf : Child_Pair_Vector.Vector;
+
+
+   begin
+      
+      for In_Tree of TVec loop
+         --  Buffer_Tree := Copy (In_Tree);
+         Clear (Tree_Vec);
+         
+         Buf_T := Copy (In_Tree);
+         Append (Tree_Vec, Buf_T);
+
+
+         Leaf_Cursors := Get_Leaf_Vector (Buf_T.Root);
+         Leaf_Index := First_Index(Leaf_Cursors);
+        
+
+         while Leaf_Index <= Leaf_Cursors.Last_Index loop
+
+            for BTree of Tree_Vec loop
+               Point := Element(Element(Leaf_Cursors, Leaf_Index));
+               
+               Child_Buf := Process_Leaf(Point, Get_Point_Vector (BTree.Root));
+               for Pair of Child_Buf loop
+                  Buffer_Tree := Copy (BTree);
+                  Cursor_Buffer := Triangle_Tree.Find (Buffer_Tree, Point);
+                  Append_Child (Container => Buffer_Tree, Parent => Cursor_Buffer, New_Item => Pair.L, Count => 1);
+                  Append_Child (Container => Buffer_Tree, Parent => Cursor_Buffer, New_Item => Pair.R, Count => 1);
+                  
+                  Append(Buf_Tree_Vec, Buffer_Tree);
+                  
+               end loop;
+            end loop;
+
+            Leaf_Index := Leaf_Index + 1 ;
+
+            Tree_Vec := Copy(Buf_Tree_Vec);
+            Clear (Buf_Tree_Vec);
+         end loop;
+
+         Append_Vector (Ret_Vec, Tree_Vec);
+      end loop;
+      return Ret_Vec;
+   end Next_Degree;
+
+   procedure Reduce (TVec : in out Tree_Vector.Vector) is
+      A_Tree, Buf_T : Triangle_Tree.Tree;
+      Tree_Index, T_I : Tree_Vector.Extended_Index;
+      Out_TVec : Tree_Vector.Vector;
+   begin
+      if not Tree_Vector.Is_Empty (TVec) then
+
+         T_I := TVec.First_Index;
+         while T_I <= TVec.Last_Index loop
+
+            Buf_T := Copy(Tree_Vector.Element(TVec,T_I));
+            Tree_Index := T_I;
+            while Tree_Index <= TVec.Last_Index loop
+
+               if T_I /= Tree_Index then
+                  A_Tree := Copy(Tree_Vector.Element (TVec, Tree_Index)); 
+
+                  if Compare(Buf_T,A_Tree) = True then
+                     Tree_Vector.Delete (TVec, Tree_Index, 1);
+                  else 
+                     Tree_Index := Tree_Index + 1 ;
+                  end if;
+
+               else
+                  Tree_Index := Tree_Index + 1 ;   
+               end if;
+
+            end loop;
+            T_I := T_I + 1;
+         end loop;
+      end if;
+   end Reduce;
+
+   A_Tree, B_Tree, C_Tree, D_Tree : Triangle_Tree.Tree;
+
+   Cursor_A, Cursor_B, Cursor_C, Cursor_D : Triangle_Tree.Cursor;
 
    Unit_Points : Point_Vector.Vector;
+
+   T_Vector : Tree_Vector.Vector;
 begin
+   Insert_Point (D_Tree, Point_Constructor(0.0,0.0,0.0));
 
-   Point_Vector.Append (Unit_Points, P_Direction);
-   Point_Vector.Append (Unit_Points, Q_Direction);
-   Point_Vector.Append (Unit_Points, R_Direction);
-   Point_Vector.Append (Unit_Points, S_Direction);
-   Point_Vector.Append (Unit_Points, T_Direction);
-   Point_Vector.Append (Unit_Points, U_Direction);
-
-   for point of Unit_Points loop
-      Ada.Text_IO.Put_Line( Unit_Vector_Name(point) & ":");
-      Print_Point (point - P_Direction);
-      Print_Point (point - Q_Direction);
-      Print_Point (point - R_Direction);
-      Print_Point (point - S_Direction);
-      Print_Point (point - T_Direction);
-      Print_Point (point - U_Direction);
-   end loop;
-
-
-      
-
-   Cursor_A := A_Tree.Root;
-   Insert_Point (A_Tree,Point_Constructor (-2.0, 1.0, 1.0));
-   Cursor_A := Triangle_Tree.First_Child(Cursor_A);
-   Insert_Point (A_Tree, Element(Cursor_A) + P_Direction);
-   Insert_Point (A_Tree, Element(Cursor_A) + Q_Direction);
-
-   Print_Tree (Cursor_A);
-
-   Cursor_B := B_Tree.Root;
-   Insert_Point (B_Tree,Point_Constructor (-3.0, 7.0, -4.0));
-   Cursor_B := Triangle_Tree.First_Child(Cursor_B);
-   Insert_Point (B_Tree, Element(Cursor_B) + Q_Direction);
-   Insert_Point (B_Tree, Element(Cursor_B) + R_Direction);
-   
-
-   Cursor_C := C_Tree.Root;
-   Insert_Point (C_Tree,Point_Constructor(5.0, -2.0, -3.0));
-   Cursor_C := Triangle_Tree.First_Child(Cursor_C);
-   Insert_Point (C_Tree, Element(Cursor_C) + R_Direction);
-   Insert_Point (C_Tree, Element(Cursor_C) + T_Direction);
-
-   if Compare (A_Tree, B_Tree) then 
-      Ada.Text_IO.Put_Line ("Okay");
-   else
-      Ada.Text_IO.Put_Line ("Not Okay");
-   end if;
-
-   if Compare (B_Tree, C_Tree) then 
-      Ada.Text_IO.Put_Line ("Okay");
-   else
-      Ada.Text_IO.Put_Line ("Not Okay");
-   end if;
-
-   if Compare (C_Tree, A_Tree) then 
-      Ada.Text_IO.Put_Line ("Okay");
-   else
-      Ada.Text_IO.Put_Line ("Not Okay");
-   end if;
+   Tree_Vector.Append(T_Vector, D_Tree);
+   T_Vector := Next_Degree (T_Vector);
+   --  Reduce (T_Vector);
+   Ada.Text_IO.Put_Line ("Trees: " & Integer'Image(Integer(T_Vector.Length)));
+   T_Vector := Next_Degree (T_Vector);
+   --  Reduce (T_Vector);
+   Ada.Text_IO.Put_Line ("Trees: " & Integer'Image(Integer(T_Vector.Length)));
+   T_Vector := Next_Degree (T_Vector);
+   --  Reduce (T_Vector);
+   Ada.Text_IO.Put_Line ("Trees: " & Integer'Image(Integer(T_Vector.Length)));
+   T_Vector := Next_Degree (T_Vector);
+   --  Reduce (T_Vector);
+   Ada.Text_IO.Put_Line ("Trees: " & Integer'Image(Integer(T_Vector.Length)));
    
 end Triangle_Trees;

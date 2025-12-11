@@ -27,6 +27,7 @@ package Plane_Tessellation is
 
    package Point_Vector is new Ada.Containers.Vectors
       (Index_Type => Natural, Element_Type => tess_point);
+   use Point_Vector;
 
    function Is_Vertex (a, b, c : float) return Boolean;
    function Is_Adjacent (This, Other : tess_point) return Boolean;

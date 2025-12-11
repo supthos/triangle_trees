@@ -133,8 +133,6 @@ package body Plane_Tessellation is
       return There - Here ;
    end Translation;
 
-   --  function Unit_Angle (Left, Right: tess_point) return float is
-
    function Unit_Rotation (Left, Right: tess_point) return tess_point is
       Buffer1, Buffer2 : tess_point;
    begin
@@ -182,8 +180,6 @@ begin
       elsif Name = "U" then
          return 5;
       else
-         -- The original Sqrt(-1) would cause a run-time exception.
-         -- It's better to explicitly raise an exception or return a special value.
          raise Program_Error with "Input to Unit_Vector_Order is not a unit vector.";
       end if;
    end;
