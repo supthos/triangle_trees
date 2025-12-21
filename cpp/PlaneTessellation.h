@@ -69,9 +69,6 @@ bool is_vertex(tess_point const& T) {
 	return (T.A + T.B + T.C == 0.0);
 }
 
-//template<tess_point T>
-//concept is_vertex = (T.A + T.B + T.C == 0.0);
-
 struct cartesian
 {
 	double X, Y = 0.0;
@@ -121,20 +118,25 @@ tess_point UnitRotation(tess_point const& L, tess_point const& R) {
 	}
 }
 
+// Rotates a point around the origin by 60-degree increments.
+tess_point RotatePoint(tess_point p, unsigned short steps) {
+	steps = steps % 6; // Ensure 0-5 range
+	switch (steps) {
+	case 0: return p;
+	case 1: return tess_point{ -p.B, -p.C, -p.A };
+	case 2: return tess_point{ p.C, p.A, p.B };
+	case 3: return tess_point{ -p.A, -p.B, -p.C };
+	case 4: return tess_point{ p.B, p.C, p.A };
+	case 5: return tess_point{ -p.C, -p.A, -p.B };
+	}
+	return p;
+}
+
 bool is_unit_point(tess_point const& V) {
 	return V == directions::P || V == directions::Q ||
 		V == directions::R || V == directions::S ||
 		V == directions::T || V == directions::U;
 }
-
-//std::map <tess_point, unsigned short> UnitVectorOrder{
-//	{ directions::P, 0 },
-//	{ directions::Q, 1 },
-//	{ directions::R, 2 },
-//	{ directions::S, 3 },
-//	{ directions::T, 4 },
-//	{ directions::U, 5 }
-//};
 
 unsigned short UnitVectorOrder(tess_point const& V) {
 	if (V == directions::P) return 0;

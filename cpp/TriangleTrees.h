@@ -59,16 +59,13 @@ class TreeNode {
 	}
 
 	void Delete(){
-		if (left != nullptr) {
-			left->Delete();
+
 			delete left;
 			left = nullptr;
-		}
-		if (right != nullptr) {
-			right->Delete();
+
 			delete right;
 			right = nullptr;
-		}
+
 	}
 
 	void Copy_Tree(TreeNode* const& From) {
@@ -109,12 +106,10 @@ class TriangleTree {
 			}
 			while (!buf_node->is_leaf()) {
 				if (buf_node->left->Nodes() <= buf_node->right->Nodes()) {
-					//root->left->InsertPoint(pos);
 					buf_node = buf_node->left;
 				}
 				else {
 					buf_node = buf_node->right;
-					//root->right->InsertPoint(pos);
 				}
 			}
 			if (is_adjacent(buf_node->point, pos)) {
@@ -128,7 +123,7 @@ class TriangleTree {
 	unsigned long Nodes() {
 		return root->Nodes();
 	}
-	std::vector<tess_point> GetPoints(TreeNode* tnp) {
+	std::vector<tess_point> GetPoints(TreeNode* tnp) const {
 		std::vector<tess_point> points;
 		if (tnp == nullptr) {
 			return points;
@@ -210,8 +205,7 @@ class TriangleTree {
 
 		Tree_Vec.push_back(Buf_T);
 
-		LeafPoints.clear();
-
+		//LeafPoints.clear();
 		LeafPoints = GetLeafPoints(InTree.root);
 		unsigned LeafIndex = 0;
 
@@ -219,6 +213,7 @@ class TriangleTree {
 			for (const TriangleTree& BTree : Tree_Vec) {
 				Buf_T = BTree;
 				Point = LeafPoints[LeafIndex];
+				//Child_Buf = ProcessLeaf2(Point, GetPoints(Buf_T.root));
 				Child_Buf = ProcessLeaf(Point, GetPoints(Buf_T.root));
 				for (const ChildPair& Pair : Child_Buf) {
 					Buffer_Tree = BTree;
@@ -276,4 +271,131 @@ class TriangleTree {
 		}
 		return *this;
 	}
+
+	void ApplySum(TreeNode* tnp, tess_point Value) {
+		if (tnp != nullptr) {
+			tnp->point = tnp->point + Value;
+			ApplySum(tnp->left, Value);
+			ApplySum(tnp->right, Value);
+		}
+	}
+
+	void ApplyRotation(TreeNode* tnp, unsigned short Rotation) {
+		if (tnp != nullptr) {
+			tnp->point = RotatePoint(tnp->point, Rotation);
+			ApplyRotation(tnp->left, Rotation);
+			ApplyRotation(tnp->right, Rotation);
+		}
+	}
+
 };
+
+// This function tests the angle of a node relative to its parent in both trees.
+bool TestValue(TreeNode* const& A_Parent_Node, TreeNode* const& A_Node, TreeNode* const& B_Parent_Node, TreeNode* const& B_Node, unsigned short Rotation) {
+	if (A_Parent_Node == nullptr && B_Parent_Node == nullptr)
+		return true;
+	else if (A_Parent_Node == nullptr || B_Parent_Node == nullptr)
+		return false;
+	else if (UnitAngleFactor(A_Node->point - A_Parent_Node->point, B_Node->point - B_Parent_Node->point) == Rotation)
+		return true;
+	else
+		return false;
+}
+
+
+bool SubCompare(TreeNode* const& A_Parent_Node, TreeNode* const& A_Node, TreeNode* const& B_Parent_Node, TreeNode* const& B_Node, unsigned short Rotation) {
+	if (A_Node != nullptr && B_Node != nullptr) {
+		if (TestValue(A_Parent_Node, A_Node, B_Parent_Node, B_Node, Rotation)) {
+			if (A_Node->is_leaf() && B_Node->is_leaf())
+				return true;
+			else if (A_Node->is_leaf() || B_Node->is_leaf())
+				return false;
+			else if (!A_Node->is_leaf() && !B_Node->is_leaf()) {
+				if (A_Node->right == nullptr && B_Node->right == nullptr) {
+					return SubCompare(A_Node, A_Node->left, B_Node, B_Node->left, Rotation);
+				}
+				else if (UnitAngleFactor(A_Node->point - A_Node->left->point, A_Node->point - A_Node->right->point)
+					== UnitAngleFactor(B_Node->point - B_Node->left->point, B_Node->point - B_Node->right->point)) {
+					return SubCompare(A_Node, A_Node->left, B_Node, B_Node->left, Rotation) &&
+						SubCompare(A_Node, A_Node->right, B_Node, B_Node->right, Rotation);
+				}
+				else if (UnitAngleFactor(A_Node->point - A_Node->left->point, A_Node->point - A_Node->right->point)
+					== UnitAngleFactor(B_Node->point - B_Node->right->point, B_Node->point - B_Node->left->point)) {
+					return SubCompare(A_Node, A_Node->left, B_Node, B_Node->right, Rotation) &&
+						SubCompare(A_Node, A_Node->right, B_Node, B_Node->left, Rotation);
+				}
+				else
+					return false;
+			}
+		}
+		else
+			return false;
+	}
+	else if (A_Node != nullptr || B_Node != nullptr)
+		return false;
+	else
+		return true;
+}
+
+
+bool Compare(TriangleTree const& This, TriangleTree const& Other) {
+	unsigned short Rotation;
+	TreeNode* A_Node = nullptr;
+	TreeNode* B_Node = nullptr;
+	bool Value = true;
+	
+	if (This.root == nullptr && Other.root == nullptr)
+		return true;
+	else if (This.root == nullptr || Other.root == nullptr)
+		return false;
+	else if (This.root->is_leaf() && Other.root->is_leaf())
+		return true;
+	else if (This.root->is_leaf() || Other.root->is_leaf())
+		return false;
+	else if (This.root->is_full() && Other.root->is_full()) {
+		Rotation = UnitAngleFactor(This.root->left->point - This.root->point, Other.root->left->point - Other.root->point);
+		Value = SubCompare(This.root, This.root->left, Other.root, Other.root->left, Rotation) &&
+			SubCompare(This.root, This.root->right, Other.root, Other.root->right, Rotation);
+		if (Value == false) {
+			Rotation = UnitAngleFactor(This.root->left->point - This.root->point, Other.root->right->point - Other.root->point);
+			Value = SubCompare(This.root, This.root->left, Other.root, Other.root->right, Rotation) &&
+				SubCompare(This.root, This.root->right, Other.root, Other.root->left, Rotation);
+
+		}
+		return Value;
+	}
+	else 
+		return false;
+}
+
+
+
+
+void Reduce(std::vector<TriangleTree>& TVec) {
+	TriangleTree A_Tree, Buf_T;
+	unsigned long Tree_Index, T_I = 0;
+	//std::vector<TriangleTree> Out_TVec;
+
+	if (!TVec.empty()) {
+		T_I = 0;
+		while (T_I < TVec.size()) {
+			Buf_T = TVec[T_I];
+			Tree_Index = T_I;
+			while (Tree_Index < TVec.size()) {
+
+				if (T_I != Tree_Index) {
+					A_Tree = TVec[Tree_Index];
+
+					if (Compare(Buf_T, A_Tree) == true) {
+						TVec.erase(TVec.begin() + Tree_Index);
+					}
+					else
+						++Tree_Index;
+				}
+				else
+					++Tree_Index;
+			}
+			++T_I;
+		}
+	}
+}
