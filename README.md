@@ -8,7 +8,6 @@ Modified the C++ code to look for strictly unique trees under translation, rotat
 Reads:
 
 Number of Trees of Degree 1: 3
-
 Number of Trees of Degree 2: 230
 
 But for the third degree, the Reduce() function has to manage over three million trees, taking about one minute per tree on my computer. This means it would take about 6 years to just return the reduced list of trees of degree 3.
