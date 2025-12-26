@@ -11,3 +11,10 @@ Reads:
 <br>Number of Trees of Degree 2: 230
 
 But for the third degree, the Reduce() function has to manage over three million trees, taking about one minute per tree on my computer. This means it would take about 6 years to just return the reduced list of trees of degree 3.
+
+Limited the trees to those whose children have an angle of 60 degrees.
+<br>Number of Trees of Degree 1: 1
+<br>Number of Trees of Degree 2: 8
+<br>Number of Trees of Degree 3: 206
+
+![first tree of degree 3](tree.bmp)
