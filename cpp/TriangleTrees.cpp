@@ -25,9 +25,11 @@ int main()
 	Reduce(T_Vector);
 	std::cout << "Number of Trees of Degree 3: " << T_Vector.size() << "\n";
 
-	T_Vector = A_Tree.NextDegree(T_Vector);
-	Reduce(T_Vector); 
-	std::cout << "Number of Trees of Degree 4: " << T_Vector.size() << "\n";
+	T_Vector[0].PrintRPlot();
+
+	//T_Vector = A_Tree.NextDegree(T_Vector);
+	//Reduce(T_Vector); 
+	//std::cout << "Number of Trees of Degree 4: " << T_Vector.size() << "\n";
 
 
     std::cout << "Hello World!\n";

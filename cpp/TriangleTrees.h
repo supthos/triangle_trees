@@ -1,4 +1,7 @@
 #pragma once
+#include <array>
+#include <tuple>
+#include <vector>
 #include <algorithm>
 #include "PlaneTessellation.h"
 
@@ -188,6 +191,28 @@ class TriangleTree {
 		return Buffer;
 	}
 
+	std::vector<ChildPair> ProcessTriangleLeaf(tess_point const& Point, std::vector<tess_point> const& Vector) {
+		std::vector<ChildPair> Buffer;
+		std::vector<tess_point> Adj_Vec = Adjacents(Point);
+		ChildPair ChildBuf;
+		for (const tess_point& L : Adj_Vec) {
+			if (std::find(Vector.begin(), Vector.end(), L) == Vector.end()) {
+				ChildBuf.left = L;
+				for (const tess_point& R : Adj_Vec) {
+					if (L != R) {
+						if (std::find(Vector.begin(), Vector.end(), R) == Vector.end()) {
+							if (UnitAngleFactor(L - Point, R - Point) == 1 || UnitAngleFactor(L - Point, R - Point) == 5) {
+								ChildBuf.right = R;
+								Buffer.push_back(ChildBuf);
+							}
+						}
+					}
+				}
+			}
+		}
+		return Buffer;
+	}
+
 	std::vector<TriangleTree> NextDegreeLoop(const TriangleTree& InTree) {
 		tess_point Point = directions::O;
 		std::vector<tess_point> NodePoints;
@@ -214,7 +239,8 @@ class TriangleTree {
 				Buf_T = BTree;
 				Point = LeafPoints[LeafIndex];
 				//Child_Buf = ProcessLeaf2(Point, GetPoints(Buf_T.root));
-				Child_Buf = ProcessLeaf(Point, GetPoints(Buf_T.root));
+				//Child_Buf = ProcessLeaf(Point, GetPoints(Buf_T.root));
+				Child_Buf = ProcessTriangleLeaf(Point, GetPoints(Buf_T.root));
 				for (const ChildPair& Pair : Child_Buf) {
 					Buffer_Tree = BTree;
 					NodeBuffer = Buffer_Tree.Find(Point);
@@ -286,6 +312,73 @@ class TriangleTree {
 			ApplyRotation(tnp->left, Rotation);
 			ApplyRotation(tnp->right, Rotation);
 		}
+	}
+
+	void PrintRPlot() {
+		cartesian point, buffer;
+		std::vector<double> xList, yList;
+		std::vector<std::pair<std::array<double,2>, std::array< double, 2>>> lines;
+		//double line1[2], line2[2];
+		std::array<double, 2> line1, line2 ;
+		std::vector<TreeNode*> nodeStack;
+
+		TreeNode* tnp = nullptr;
+		if (tnp != nullptr){}
+			nodeStack.push_back(root);
+		while (!nodeStack.empty()) {
+            tnp = nodeStack.back();
+            nodeStack.pop_back();
+
+			point = to_cartesian(tnp->point);
+			xList.push_back(point.X);
+			yList.push_back(point.Y);
+
+
+			if (tnp->left != nullptr) {
+				buffer = to_cartesian(tnp->left->point);
+				xList.push_back(buffer.X);
+				yList.push_back(buffer.Y);
+				line1[0] = point.X;
+				line2[0] = point.Y;
+				line1[1] = buffer.X;
+				line2[1] = buffer.Y;
+
+				lines.push_back(std::make_pair(line1,line2));
+				nodeStack.push_back(tnp->left);
+			}
+			if (tnp->right != nullptr) {
+				buffer = to_cartesian(tnp->right->point);
+				xList.push_back(buffer.X);
+				yList.push_back(buffer.Y);
+				line1[0] = point.X;
+				line2[0] = point.Y;
+				line1[1] = buffer.X;
+				line2[1] = buffer.Y;
+				lines.push_back(std::make_pair(line1, line2));
+				nodeStack.push_back(tnp->right);
+			}
+
+		}
+		std::cout << "plot(c(";
+		for (unsigned i = 0; i < xList.size(); i++) {
+			std::cout << std::to_string(xList[i]);
+			if (i != xList.size() - 1)
+				std::cout << ", ";
+		}
+		std::cout << "), c(";
+		for (unsigned i = 0; i < yList.size(); i++) {
+			std::cout << std::to_string(yList[i]);
+			if (i != yList.size() - 1)
+				std::cout << ", ";
+		}
+		std::cout << "))" << std::endl;
+
+		for (auto& lp : lines) {
+			std::cout << "lines(c(" << std::to_string(lp.first[0]) << ", " << std::to_string(lp.first[1]) << "), c("
+				<< std::to_string(lp.second[0]) << ", " << std::to_string(lp.second[1]) << "))" << std::endl;
+			
+		}
+		
 	}
 
 };
