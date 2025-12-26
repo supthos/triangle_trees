@@ -1,6 +1,9 @@
 # triangle_trees
 Binary trees overlaid on a triangular tessellation of the plane.
 
+The euclidean plane can be tessellated by only 3 regular polygons. Namely, the triangle, the square and the hexagon. To the vertices of a triangular tessellation of the plane, we may associate nodes of a binary tree whose edges are the sides of the triangles themselves.
+I've written a C++ program to find all the unique ways a complete binary tree may be represented in such a triangular tessellation under translational, rotational, and reflective equivalence.
+
 Tried the first time on Ada. Observed the results (Degree 1: 30, Degree 2: 7728, then memory saturation)
 and translated to C++. Same result.
 
